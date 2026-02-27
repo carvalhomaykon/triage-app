@@ -4,3 +4,7 @@
   --color-primary: #009468;
   --color-secondary: #00815A;
 }
+
+* {
+  font-family: 'Poppins', sans-serif;
+}

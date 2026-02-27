@@ -119,7 +119,6 @@ export function Settings() {
                 return item;
             });
 
-            // 🔥 Salva apenas IDs selecionados
             const selecionados = atualizados
                 .filter(item => item.selecionado)
                 .map(item => item.servico.id);
