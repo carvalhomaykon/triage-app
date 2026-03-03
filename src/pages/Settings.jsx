@@ -192,7 +192,7 @@ export function Settings() {
                                         <ShieldCheck size={16} /> Client Secret
                                     </label>
                                     <input 
-                                        type="text" 
+                                        type="password" 
                                         name="clienteSecret" 
                                         value={dadosConexao.clienteSecret} 
                                         onChange={handleInputChange}
