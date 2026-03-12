@@ -10,10 +10,11 @@ import {
 import { prioridadeService } from '../services/prioridadeService';
 import { senhaService } from '../services/senhaService';
 import logoCrm from '../assets/logo-crm.png';
+import { authService } from '../services/api';
 
 // Componente Wrapper para as etapa
 const StepWrapper = ({ title, children, onBack }) => (
-  <div className="h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
+  <div className="min-h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
     <header className="bg-primary border-b border-slate-200 shadow-sm px-8 py-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-6">
@@ -83,10 +84,14 @@ const PainelTriagem = () => {
       const unidadeId = localStorage.getItem('unidadeSelecionada');
       if (!unidadeId) return;
       
-      const todos = await unidadeService.listarServicosAtivos(unidadeId);
-      
+      let todos = await unidadeService.listarServicosAtivos(unidadeId);
+      if (todos.length === 0) {
+        await authService.getToken();
+        todos = await unidadeService.listarServicosAtivos(unidadeId);
+      }
+
       const selecionados = JSON.parse(
-        localStorage.getItem(`servicosSelecionados_${unidadeId}`) || '[]'
+        localStorage.getItem(`servicosSelecionados_${unidadeId}`)
       );
 
       const filtrados = todos.filter(item =>
@@ -101,7 +106,6 @@ const PainelTriagem = () => {
       setListaPrioridades(prioritarias);
       setServicosDisponiveis(filtrados);
     }
-
     carregar();
   }, []);
 

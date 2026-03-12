@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Save, Database, ListChecks, Server, ShieldCheck, CheckCircle, Building2, User, Lock, RefreshCw , XCircle } from 'lucide-react';
 import { authService } from '../services/api';
 import { unidadeService } from '../services/unidadeService';
@@ -25,6 +26,8 @@ export function Settings() {
             clienteSecret: '',
         };
     });
+
+    const navigate = useNavigate();
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
