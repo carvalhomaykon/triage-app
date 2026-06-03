@@ -14,6 +14,11 @@ export const unidadeService = {
     async listarServicosAtivos(unidadeId) {
         try {
             const response = await api.get(`/unidades/${unidadeId}/servicos`);
+            if (response.status === 401) {
+                await api.authService.getToken();
+                return api.get(`/unidades/${unidadeId}/servicos`);
+            }
+            
             return response.data;
         } catch (error) {
             console.error("Erro ao listar serviços ativos:", error);

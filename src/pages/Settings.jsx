@@ -93,7 +93,7 @@ export function Settings() {
 
                     const atualizados = data.map(item => ({
                         ...item,
-                        selecionado: salvos.includes(item.servico.id)
+                        selecionado: salvos.some(s => s.id === item.servico.id || s === item.servico.id)
                     }));
 
                     setServicos(atualizados);
@@ -124,7 +124,9 @@ export function Settings() {
 
             const selecionados = atualizados
                 .filter(item => item.selecionado)
-                .map(item => item.servico.id);
+                // .map(item => item.servico.id);
+                .map(item => item.servico);
+                console.log("Serviços selecionados para salvar:", selecionados);
 
             localStorage.setItem(
                 `servicosSelecionados_${unidadeSelecionada}`,

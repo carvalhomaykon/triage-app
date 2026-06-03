@@ -92,11 +92,7 @@ const PainelTriagem = () => {
 
       const selecionados = JSON.parse(
         localStorage.getItem(`servicosSelecionados_${unidadeId}`)
-      );
-
-      const filtrados = todos.filter(item =>
-        selecionados.includes(item.servico.id)
-      );
+      ) || [];
 
       const todasPrioridades = await prioridadeService.getPrioridades();
       const normal = todasPrioridades.find(p => p.peso === 0);
@@ -104,7 +100,7 @@ const PainelTriagem = () => {
 
       setPrioridadeNormal(normal.id);
       setListaPrioridades(prioritarias);
-      setServicosDisponiveis(filtrados);
+      setServicosDisponiveis(selecionados);
     }
     carregar();
   }, []);
@@ -112,7 +108,7 @@ const PainelTriagem = () => {
   useEffect(() => {
     let interval = null;
     if (step === 4) {
-      setTimer(10); // Reseta o cronômetro ao entrar na tela
+      setTimer(10);
       interval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
@@ -145,10 +141,30 @@ const PainelTriagem = () => {
     });
   };
 
+  const handleDocumentoChange = (e) => {
+    const apenasNumeros = e.target.value.replace(/[^0-9]/g, "");
+
+    setDados({
+      ...dados,
+      cliente: { 
+        ...dados.cliente, 
+        documento: apenasNumeros 
+      }
+    });
+  };
+
   const finalizarTriagem = async () => {
     setLoading(true);
     try {
-      dados.cliente.documento = dados.unidade + '-' + Date.now();
+      if (dados.cliente.tipo === "normal") {
+        dados.cliente.documento = dados.unidade + '-' + Date.now();
+      }
+      
+      if (!dados.cliente.documento.trim()) {
+        alert("Por favor, preencha o número do CRM para atendimento prioritário.");
+        setLoading(false);
+        return;
+      }
 
       const ticketGerado = await senhaService.gerarSenha(dados);
       setTicketGerado(ticketGerado);
@@ -206,11 +222,11 @@ const PainelTriagem = () => {
           <div className="space-y-4">
             {servicosDisponiveis.map((item) => (
               <button
-                key={item.servico.id}
+                key={item.id}
                 onClick={() => { 
                   setDados({
                     ...dados, 
-                    servico: item.servico.id
+                    servico: item.id
                   }); 
                   setStep(3); 
                 }}
@@ -218,7 +234,7 @@ const PainelTriagem = () => {
               >
                 <div className="flex items-center gap-4">
                   <span className="text-lg font-semibold text-slate-700">
-                    {item.servico.nome}
+                    {item.nome}
                   </span>
                 </div>
 
@@ -235,6 +251,26 @@ const PainelTriagem = () => {
       {step === 3 && (
         <StepWrapper title="Identificação" onBack={() => setStep(2)}>
           <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
+            
+            {/* Campo de Seleção do Tipo de Cliente (Padrão: Doutor) */}
+            <label className="block text-sm font-medium text-slate-500 mb-2">Tipo de Cliente</label>
+            <select
+              value={dados.cliente.tipo || "doutor"} // Define "doutor" como padrão se estiver indefinido
+              onChange={(e) => setDados({
+                ...dados,
+                cliente: { 
+                  ...dados.cliente, 
+                  tipo: e.target.value, 
+                  documento: e.target.value === "normal" ? "" : dados.cliente.documento 
+                }
+              })}
+              className="w-full text-xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8 bg-transparent"
+            >
+              <option value="doutor">Médico(a) / Doutor(a)</option>
+              <option value="normal">Paciente / Pessoa Normal</option>
+            </select>
+
+            {/* Campo Nome */}
             <label className="block text-sm font-medium text-slate-500 mb-2">Nome do Cliente</label>
             <input 
               autoFocus
@@ -244,8 +280,28 @@ const PainelTriagem = () => {
               placeholder="Digite nome e sobrenome"
               className="w-full text-2xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8"
             />
+
+            {(dados.cliente.tipo === "doutor" || !dados.cliente.tipo) && (
+              <>
+                <label className="block text-sm font-medium text-slate-500 mb-2">N° CRM do Cliente</label>
+                <input 
+                  type="text"
+                  value={dados.cliente.documento}
+                  inputMode="numeric"
+                  onChange={handleDocumentoChange}
+                  placeholder="Digite o N° do CRM"
+                  className="w-full text-2xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8"
+                />
+              </>
+            )}
+
+            {/* Botão de Finalização com validação condicional */}
             <button 
-              disabled={!dados.cliente.nome.trim() || loading}
+              disabled={
+                !dados.cliente.nome.trim() || 
+                ((dados.cliente.tipo === "doutor" || !dados.cliente.tipo) && !dados.cliente.documento?.trim()) || 
+                loading
+              }
               onClick={finalizarTriagem}
               className="w-full bg-blue-600 text-white py-4 rounded-xl text-xl font-bold hover:bg-blue-700 disabled:bg-slate-300 transition-all flex items-center justify-center gap-2"
             >
