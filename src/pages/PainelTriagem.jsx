@@ -12,7 +12,7 @@ import { senhaService } from '../services/senhaService';
 import logoCrm from '../assets/logo-crm.png';
 import { authService } from '../services/api';
 
-// Componente Wrapper para as etapa
+// --- COMPONENTES AUXILIARES ---
 const StepWrapper = ({ title, children, onBack }) => (
   <div className="min-h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
     <header className="bg-primary border-b border-slate-200 shadow-sm px-8 py-6">
@@ -57,18 +57,25 @@ const StepWrapper = ({ title, children, onBack }) => (
   </div>
 );
 
+
+// --- ESTADOS INICIAIS ---
+const ESTADO_INICIAL_DADOS = {
+  unidade: parseInt(localStorage.getItem('unidadeSelecionada'), 10) || 0,
+  servico: '',
+  prioridade: '',
+  cliente: {
+    nome: '',
+    documento: '',
+    tipo: 'normal' // Definido Público Geral como padrão
+  }
+};
+
+
+// --- COMPONENTE PRINCIPAL ---
 const PainelTriagem = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [dados, setDados] = useState({
-    unidade: parseInt(localStorage.getItem('unidadeSelecionada'), 10) || 0,
-    servico: '',
-    prioridade: '',
-    cliente: {
-      nome: '',
-      documento: '',
-    }
-  });
+  const [dados, setDados] = useState(ESTADO_INICIAL_DADOS);
 
   const [ticketGerado, setTicketGerado] = useState(null);
   const [senhaGerada, setSenhaGerada] = useState(null);
@@ -79,6 +86,7 @@ const PainelTriagem = () => {
 
   const [timer, setTimer] = useState(10);
 
+  // Carregamento inicial de serviços e prioridades
   useEffect(() => {
     async function carregar() {
       const unidadeId = localStorage.getItem('unidadeSelecionada');
@@ -105,6 +113,7 @@ const PainelTriagem = () => {
     carregar();
   }, []);
 
+  // Timer para reiniciar o fluxo na Etapa 4
   useEffect(() => {
     let interval = null;
     if (step === 4) {
@@ -123,34 +132,52 @@ const PainelTriagem = () => {
     return () => clearInterval(interval);
   }, [step]);
 
+  // --- HANDLERS ---
   const resetarFluxo = () => {
     setStep(1);
-    setDados({ 
-        ...dados, 
-        servico: '', 
-        prioridade: '', 
-        cliente: { nome: '', documento: '' } 
-    });
+    setDados(ESTADO_INICIAL_DADOS);
     setSenhaGerada(null);
   };
 
   const handleNomeChange = (e) => {
-    setDados({
-      ...dados,
-      cliente: { ...dados.cliente, nome: e.target.value }
-    });
+    setDados((prev) => ({
+      ...prev,
+      cliente: { ...prev.cliente, nome: e.target.value }
+    }));
   };
 
   const handleDocumentoChange = (e) => {
     const apenasNumeros = e.target.value.replace(/[^0-9]/g, "");
+    setDados((prev) => ({
+      ...prev,
+      cliente: { ...prev.cliente, documento: apenasNumeros }
+    }));
+  };
 
-    setDados({
-      ...dados,
-      cliente: { 
-        ...dados.cliente, 
-        documento: apenasNumeros 
+  const handleTipoClienteChange = (e) => {
+    const novoTipo = e.target.value;
+    let novoNome = dados.cliente.nome;
+
+    // Regra para injetar/remover "Dr. " no nome para facilitar o input
+    if (novoTipo === 'medico') {
+      if (!novoNome.startsWith('Dr. ')) {
+        novoNome = novoNome.trim() ? `Dr. ${novoNome}` : 'Dr. ';
       }
-    });
+    } else {
+      if (novoNome.startsWith('Dr. ')) {
+        novoNome = novoNome.replace(/^Dr\.\s*/, '');
+      }
+    }
+
+    setDados((prev) => ({
+      ...prev,
+      cliente: { 
+        ...prev.cliente, 
+        tipo: novoTipo, 
+        nome: novoNome,
+        documento: novoTipo === "normal" ? "" : prev.cliente.documento 
+      }
+    }));
   };
 
   const finalizarTriagem = async () => {
@@ -160,22 +187,22 @@ const PainelTriagem = () => {
         dados.cliente.documento = dados.unidade + '-' + Date.now();
       }
       
-      if (!dados.cliente.documento.trim()) {
-        alert("Por favor, preencha o número do CRM para atendimento prioritário.");
+      if (dados.cliente.tipo === "medico" && !dados.cliente.documento.trim()) {
+        alert("Por favor, preencha o número do CRM para atendimento.");
         setLoading(false);
         return;
       }
 
-      const ticketGerado = await senhaService.gerarSenha(dados);
-      setTicketGerado(ticketGerado);
+      const ticket = await senhaService.gerarSenha(dados);
+      setTicketGerado(ticket);
 
       try {
-        const senhaData = await senhaService.exibirSenha(ticketGerado);
-        setSenhaGerada(ticketGerado.senha.format);
+        await senhaService.exibirSenha(ticket); // Removi a atribuição inútil para `senhaData`
+        setSenhaGerada(ticket.senha.format);
         setStep(4);
       } catch (printError) {
-        console.error("Erro na impressão, mas a senha foi gerada:", ticketGerado);
-        setSenhaGerada(ticketGerado.senha.format);
+        console.error("Erro na impressão, mas a senha foi gerada:", ticket);
+        setSenhaGerada(ticket.senha.format);
         setStep(4);
       }
     } catch (error) {
@@ -186,8 +213,10 @@ const PainelTriagem = () => {
     }
   };
 
+  // --- RENDERIZAÇÃO ---
   return (
     <>
+      {/* Etapa 1: Seleção de Prioridade */}
       {step === 1 && (
         <StepWrapper title="Selecione o Tipo de Atendimento">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl flex-1 mx-auto">
@@ -203,7 +232,7 @@ const PainelTriagem = () => {
             </button>
 
             <button 
-              onClick={() => { setDados({...dados, prioridade: listaPrioridades[0].id}); setStep(2); }}
+              onClick={() => { setDados({...dados, prioridade: listaPrioridades[0]?.id}); setStep(2); }}
               className="group bg-white border-2 border-red-500 p-8 rounded-3xl shadow-xl transition-all duration-300 transform hover:-translate-y-2 flex flex-col items-center"
             >
               <div className="bg-red-100 p-6 rounded-full mb-6 group-hover:bg-red-500 transition-colors">
@@ -224,10 +253,7 @@ const PainelTriagem = () => {
               <button
                 key={item.id}
                 onClick={() => { 
-                  setDados({
-                    ...dados, 
-                    servico: item.id
-                  }); 
+                  setDados({ ...dados, servico: item.id }); 
                   setStep(3); 
                 }}
                 className="w-full bg-white p-6 rounded-2xl shadow hover:shadow-md hover:bg-slate-50 flex items-center justify-between group transition-all border-2 border-primary"
@@ -252,22 +278,15 @@ const PainelTriagem = () => {
         <StepWrapper title="Identificação" onBack={() => setStep(2)}>
           <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
             
-            {/* Campo de Seleção do Tipo de Cliente (Padrão: Doutor) */}
+            {/* Campo de Seleção do Tipo de Cliente */}
             <label className="block text-sm font-medium text-slate-500 mb-2">Tipo de Cliente</label>
             <select
-              value={dados.cliente.tipo || "doutor"} // Define "doutor" como padrão se estiver indefinido
-              onChange={(e) => setDados({
-                ...dados,
-                cliente: { 
-                  ...dados.cliente, 
-                  tipo: e.target.value, 
-                  documento: e.target.value === "normal" ? "" : dados.cliente.documento 
-                }
-              })}
-              className="w-full text-xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8 bg-transparent"
+              value={dados.cliente.tipo}
+              onChange={handleTipoClienteChange}
+              className="w-full text-xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8 bg-transparent cursor-pointer"
             >
-              <option value="doutor">Médico(a) / Doutor(a)</option>
-              <option value="normal">Paciente / Pessoa Normal</option>
+              <option value="normal">Público Geral</option>
+              <option value="medico">Médico(a) (CRM)</option>
             </select>
 
             {/* Campo Nome */}
@@ -281,7 +300,8 @@ const PainelTriagem = () => {
               className="w-full text-2xl p-4 border-b-4 border-slate-200 focus:border-blue-500 outline-none transition-colors mb-8"
             />
 
-            {(dados.cliente.tipo === "doutor" || !dados.cliente.tipo) && (
+            {/* Campo CRM (Renderizado apenas se for Médico) */}
+            {dados.cliente.tipo === "medico" && (
               <>
                 <label className="block text-sm font-medium text-slate-500 mb-2">N° CRM do Cliente</label>
                 <input 
@@ -295,11 +315,12 @@ const PainelTriagem = () => {
               </>
             )}
 
-            {/* Botão de Finalização com validação condicional */}
+            {/* Botão de Finalização com validação aperfeiçoada */}
             <button 
               disabled={
                 !dados.cliente.nome.trim() || 
-                ((dados.cliente.tipo === "doutor" || !dados.cliente.tipo) && !dados.cliente.documento?.trim()) || 
+                dados.cliente.nome.trim() === 'Dr.' || // Impede de salvar apenas com "Dr."
+                (dados.cliente.tipo === "medico" && !dados.cliente.documento?.trim()) || 
                 loading
               }
               onClick={finalizarTriagem}
@@ -315,7 +336,6 @@ const PainelTriagem = () => {
       {step === 4 && ticketGerado && (
         <div className="text-center animate-in zoom-in duration-300">
           <div className="relative bg-white p-8 rounded-lg shadow-2xl border-t-[12px] border-blue-600 max-w-sm mx-auto overflow-hidden">
-            {/* Detalhe estético de "picote" de papel no fundo */}
             <div className="absolute bottom-0 left-0 right-0 h-2 bg-[radial-gradient(circle,_#f1f5f9_20%,_transparent_20%)] bg-[length:15px_15px] bg-repeat-x"></div>
             
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -325,7 +345,7 @@ const PainelTriagem = () => {
                 Atendimento Confirmado
               </h3>
               <p className="text-2xl font-bold text-slate-800">
-                Olá, {dados.cliente.nome.split(' ')[0]}!
+                Olá, {dados.cliente.nome.replace('Dr. ', '').split(' ')[0]}!
               </p>
             </div>
 
@@ -348,7 +368,6 @@ const PainelTriagem = () => {
                 <Printer size={20} className="animate-bounce" />
                 <span>Retire seu ticket...</span>
               </div>
-              {/* Barra de progresso visual do tempo */}
               <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                 <div 
                   className="bg-blue-500 h-full transition-all duration-1000 ease-linear"
