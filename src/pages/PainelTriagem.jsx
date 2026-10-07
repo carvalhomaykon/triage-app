@@ -13,49 +13,51 @@ import logoCrm from '../assets/logo-crm.png';
 import { authService } from '../services/api';
 
 // --- COMPONENTES AUXILIARES ---
-const StepWrapper = ({ title, children, onBack }) => (
-  <div className="min-h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
-    <header className="bg-primary border-b border-slate-200 shadow-sm px-8 py-6">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          {onBack && (
-            <button 
+const StepWrapper = ({ title, children, onBack }) => {
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
+      <header className="bg-primary border-b border-slate-200 shadow-sm px-8 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {onBack && (
+              <button 
               onClick={onBack} 
               className="group p-3 hover:bg-blue-50 rounded-2xl transition-all border border-slate-100 shadow-sm"
-            >
-              <ChevronLeft className="w-8 h-8 text-white group-hover:scale-110 transition-transform" />
-            </button>
-          )}
-          <div>
-            <h2 className="text-4xl font-black text-white leading-tight">{title}</h2>
+              >
+                <ChevronLeft className="w-8 h-8 text-white group-hover:scale-110 transition-transform" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-4xl font-black text-white leading-tight">{title}</h2>
+            </div>
+          </div>
+
+          {/* Logo no Header */}
+          <div className="hidden md:block p-3 rounded-2xl">
+            <img src={logoCrm} alt="Logo CRM" className="h-20 w-auto object-contain" />
           </div>
         </div>
+      </header>
 
-        {/* Logo no Header */}
-        <div className="hidden md:block p-3 rounded-2xl">
-          <img src={logoCrm} alt="Logo CRM" className="h-20 w-auto object-contain" />
+      {/* Conteúdo Central */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-4xl mx-auto">
+        <div className="w-full">
+          {children}
         </div>
-      </div>
-    </header>
+      </main>
 
-    {/* Conteúdo Central */}
-    <main className="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-4xl mx-auto">
-      <div className="w-full">
-        {children}
-      </div>
-    </main>
-
-    {/* Footer Decorativo / Informativo */}
-    <footer className="bg-primary text-white py-4 px-8 flex justify-between items-center">
-      <div className="flex items-center gap-2">
-        <span className="text-sm">Conselho Regional de Medicina</span>
-      </div>
-      <p className="text-xs">
-        {new Date().toLocaleDateString('pt-BR')}
-      </p>
-    </footer>
-  </div>
-);
+      {/* Footer Decorativo / Informativo */}
+      <footer className="bg-primary text-white py-4 px-8 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">Conselho Regional de Medicina</span>
+        </div>
+        <p className="text-xs">
+          {new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}
+        </p>
+      </footer>
+    </div>
+  )
+};
 
 
 // --- ESTADOS INICIAIS ---
@@ -132,10 +134,17 @@ const PainelTriagem = () => {
     return () => clearInterval(interval);
   }, [step]);
 
+  useEffect(() => {
+    if (step === 2 && servicosDisponiveis.length === 1) {
+      setDados((prev) => ({ ...prev, servico: servicosDisponiveis[0].id }));
+      setStep(3);
+    }
+  }, [step, servicosDisponiveis]);
+
   // --- HANDLERS ---
   const resetarFluxo = () => {
     setStep(1);
-    setDados(ESTADO_INICIAL_DADOS);
+    setDados({ ...ESTADO_INICIAL_DADOS, cliente: { ...ESTADO_INICIAL_DADOS.cliente } });
     setSenhaGerada(null);
   };
 
@@ -193,7 +202,18 @@ const PainelTriagem = () => {
         return;
       }
 
-      const ticket = await senhaService.gerarSenha(dados);
+      const dadosEnvio = {
+        ...dados,
+        cliente: {
+          ...dados.cliente,
+          documento:
+            dados.cliente.tipo === "normal"
+              ? `${dados.unidade}-${Date.now()}`
+              : dados.cliente.documento,
+        },
+      };
+
+      const ticket = await senhaService.gerarSenha(dadosEnvio);
       setTicketGerado(ticket);
 
       try {
@@ -246,7 +266,7 @@ const PainelTriagem = () => {
       )}
       
       {/* Etapa 2: Seleção de Serviço */}
-      {step === 2 && (
+      {step === 2 && servicosDisponiveis.length !== 1 && (
         <StepWrapper title="Selecione o Serviço" onBack={() => setStep(1)}>
           <div className="space-y-4">
             {servicosDisponiveis.map((item) => (
@@ -275,7 +295,7 @@ const PainelTriagem = () => {
 
       {/* Etapa 3: Identificação */}
       {step === 3 && (
-        <StepWrapper title="Identificação" onBack={() => setStep(2)}>
+        <StepWrapper title="Identificação" onBack={() => setStep(servicosDisponiveis.length === 1 ? 1 : 2)}>
           <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
             
             {/* Campo de Seleção do Tipo de Cliente */}
