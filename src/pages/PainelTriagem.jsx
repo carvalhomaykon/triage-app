@@ -12,8 +12,24 @@ import { senhaService } from '../services/senhaService';
 import logoCrm from '../assets/logo-crm.png';
 import { authService } from '../services/api';
 
+const useRelogio = () => {
+  const [agora, setAgora] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setAgora(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const data = agora.toLocaleDateString('pt-BR');
+  const hora = agora.toLocaleTimeString('pt-BR');
+
+  return { data, hora };
+};
+
 // --- COMPONENTES AUXILIARES ---
 const StepWrapper = ({ title, children, onBack }) => {
+  const { data, hora } = useRelogio();
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 overflow-hidden animate-in fade-in duration-500">
       <header className="bg-primary border-b border-slate-200 shadow-sm px-8 py-6">
@@ -52,7 +68,7 @@ const StepWrapper = ({ title, children, onBack }) => {
           <span className="text-sm">Conselho Regional de Medicina</span>
         </div>
         <p className="text-xs">
-          {new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR')}
+          {data} - {hora}
         </p>
       </footer>
     </div>
